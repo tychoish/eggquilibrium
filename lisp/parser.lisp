@@ -3,7 +3,7 @@
   (:import-from :eggqulibrium.model
 		:entry
 		:entry-reference
-		:entry-db :add-entry
+		:entry-db :add-entry)
   (:import-from :cl-csv
 		:read-csv)
   (:export :parse-entries))
