@@ -67,10 +67,11 @@
        :args     free-args)
       (return-from main))
 
-    (grip:notice> (list :yolks (getf options :yolks) :whites (getf options :whites)))
     (grip:debug> (list :filename (getf options :path)))
 
-    (let ((db (parse-entries (getf options :path)))
-	  (conf (make-instance 'configuration :yolks (getf options :yolks) :whites (getf options :whites))))
-
-	  (find-equalibrium conf db))))
+    (let* ((db (parse-entries (getf options :path)))
+	   (conf (make-instance 'configuration :yolks (getf options :yolks) :whites (getf options :whites)))
+	   (results (find-equalibrium conf db)))
+      (loop for item across results
+	    do
+	       (grip:info> item)))))

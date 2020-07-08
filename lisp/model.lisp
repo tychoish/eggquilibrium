@@ -64,6 +64,12 @@
 
   (incf (db-length db)))
 
+(defun shuffle-vector (vector)
+  (loop for idx downfrom (1- (length vector)) to 1
+	for other = (random (1+ idx))
+	do (unless (= idx other)
+	     (rotatef (aref vector idx) (aref vector other))))
+  vector)
 
 (defun add-egg-part-to-table (ht num entry)
   (when (= 0 num)
@@ -82,56 +88,66 @@
   configuration and return sequence of entries (i.e. recpies) that can
   complete the solution."))
 
-(defun needs-yolks ()
-  (grip:info> "needs yolks"))
-(defun needs-whites ()
-  (grip:info> "needs whites"))
+(defgeneric equalibriump (conf))
 
+(defmethod equalibriump ((conf configuration))
+ (= (conf-yolks conf) (conf-whites conf)))
 
-(defmethod get-parts ((db entry-db) (part symbol) (num integer))
-  (case part
-    (:yolks
-     (let ((entries (make-array 0 :adjustable t :fill-pointer 0))
-	   (yolks (db-yolks db)))
-       (loop for count from num downto 1 do
-	 (when (= 0 num)
-	   (return-from get-parts entries))
+(defun replan-equalib (conf results)
+  (let ((yolks (conf-yolks conf))
+	(whites (conf-whites conf)))
+    (loop for item across results
+	  do
+	     (incf whites (entry-whites item))
+	     (incf yolks (entry-yolks item)))
 
-	 (multiple-value-bind (slice ok) (gethash count yolks)
-	   (when ok
-	     (vector-push-extend (aref slice (random (length slice))) entries))
-	   (decf num count)))))
-     (grip:info> "yolk")
-    (:whites
-     (grip:info> "white"))
-    (otherwise
-     (grip:error> (grip:new-message "oh no ~A" :args (list part))))))
+    (make-instance 'configuration :whites whites :yolks yolks)))
 
-(defun switch-test (part)
-  (case part
-    (:yolk
-     (grip:info> "yolk"))
-    (:whites
-     (grip:info> "white"))
-    (otherwise
-     (grip:error> "oh no"))))
-
-(defun smallest-positive-delta (a b)
-  (if (> a b)
-      (- a b)
-      (- b a)))
+(defun entries-for-parts (records num results)
+  (loop for count from num downto 1 do
+    (multiple-value-bind (slice ok) (gethash count records)
+      (when ok
+	(vector-push-extend (aref slice (random (length slice))) results)
+	(decf num count)))))
 
 
 (defmethod find-equalibrium ((conf configuration) (db entry-db))
-  (with-accessors ((yolks conf-yolks) (whites conf-whites)) conf
-    (when (= yolks whites)
-      (grip:info> "eggqulibrium exists!")
-      (return-from find-equalibrium t))
+  (maphash (lambda (k v) (declare (ignore k)) (shuffle-vector v)) (db-yolks db))
+  (maphash (lambda (k v) (declare (ignore k)) (shuffle-vector v)) (db-whites db))
 
-    (let ((part-type (if (> yolks whites) :yolks :whites))
-	  (output (make-array 0 :adjustable t :fill-pointer 0)))
-      (loop for item across (get-parts db part-type (smallest-positive-delta yolks whites))
-	    do
-	       (vector-push-extend item output)
-	       (grip:info> item))
-      output)))
+  (let* ((output (make-array 0 :adjustable t :fill-pointer 0))
+	 (state (replan-equalib conf output)))
+    (loop
+      (let ((state (replan-equalib state output)))
+	(when (equalibriump state)
+	  (grip:info> "eggqulibrium eggsists!")
+	  (grip:notice> (list (cons "eggs" (conf-yolks state))
+			      (cons "start-yolk" (conf-yolks conf))
+			      (cons "start-whites" (conf-whites conf))
+			      (cons "yolk" (- (conf-yolks state) (conf-yolks conf)))
+			      (cons "whites" (- (conf-whites state) (conf-whites conf)))))
+	  (return-from find-equalibrium output))
+
+	(when (>= (length output) (hash-table-size (db-primary db)))
+	  (grip:warning> "could not find eggqulibrium")
+	  (return-from find-equalibrium output))
+
+	(let ((yolks (conf-yolks state))
+	      (whites (conf-whites state))
+	      (previous (length output)))
+
+	  (grip:debug> (grip:new-message
+		       (list (cons "yolks" yolks)
+			    (cons "whites" whites)
+			    (cons "records" (length output)))
+		       :when (> previous 0)))
+
+	  (if (> yolks whites)
+	      (entries-for-parts (db-whites db) (- yolks whites) output)
+	      (entries-for-parts (db-yolks db) (- whites yolks) output))
+
+	  (when (= previous (length output))
+	    (grip:warning> "unsolveable eggqulibrium problem, not making progress!")
+	    (return-from find-equalibrium output))
+
+	  (setf state (replan-equalib conf output)))))))
