@@ -110,14 +110,15 @@
 	(vector-push-extend (aref slice (random (length slice))) results)
 	(decf num count)))))
 
-
 (defmethod find-equalibrium ((conf configuration) (db entry-db))
   (maphash (lambda (k v) (declare (ignore k)) (shuffle-vector v)) (db-yolks db))
   (maphash (lambda (k v) (declare (ignore k)) (shuffle-vector v)) (db-whites db))
 
   (let* ((output (make-array 0 :adjustable t :fill-pointer 0))
-	 (state (replan-equalib conf output)))
+	 (state (replan-equalib conf output))
+	 (iters -1))
     (loop
+      (incf iters)
       (let ((state (replan-equalib state output)))
 	(when (equalibriump state)
 	  (grip:info> "eggqulibrium eggsists!")
@@ -125,6 +126,7 @@
 			      (cons "start-yolk" (conf-yolks conf))
 			      (cons "start-whites" (conf-whites conf))
 			      (cons "yolk" (- (conf-yolks state) (conf-yolks conf)))
+			      (cons "iterations" iters)
 			      (cons "whites" (- (conf-whites state) (conf-whites conf)))))
 	  (return-from find-equalibrium output))
 
