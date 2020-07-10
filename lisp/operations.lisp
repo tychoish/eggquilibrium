@@ -4,7 +4,7 @@
 		:parse-entries)
   (:import-from :eggqulibrium.model
 		:configuration
-		:find-equalibrium
+		:find-equilibrium
 		:db-primary)
   (:export :main))
 (in-package :eggqulibrium.operations)
@@ -30,6 +30,15 @@
   (grip:error> (format nil "~A" condition))
   (log-fatal "missing required "))
 
+(defun parse-mode (value)
+  (when (search "util" value)
+    (return-from parse-mode :utilization))
+
+  (when (search "add" value)
+    (return-from parse-mode :additive))
+
+  (log-fatal (grip:new-message "~A is not a known mode" :args value)))
+
 (opts:define-opts
   (:name :help
    :description "print help text"
@@ -40,6 +49,14 @@
    :long "path"
    :short #\p
    :default (merge-pathnames (uiop:getcwd) "eggqulibrium.csv"))
+  (:name :mode
+   :description "search for equilibrium in 'additive' mode (add
+   recpies to get a new equilibrium) or utilization (find recpies to
+   use specified egg parts)."
+   :long "mode"
+   :short #\m
+   :default "additive"
+   :arg-parser #'parse-mode)
   (:name :yolks
    :description "number of yolks"
    :arg-parser #'parse-integer
@@ -70,8 +87,9 @@
     (grip:debug> (list :filename (getf options :path)))
 
     (let* ((db (parse-entries (getf options :path)))
-	   (conf (make-instance 'configuration :yolks (getf options :yolks) :whites (getf options :whites)))
-	   (results (find-equalibrium conf db)))
+	   (conf (make-instance 'configuration :yolks (getf options :yolks)
+					       :whites (getf options :whites)))
+	   (results (find-equilibrium conf db)))
       (loop for item across results
 	    do
 	       (grip:info> item)))))

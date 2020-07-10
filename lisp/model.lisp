@@ -7,7 +7,7 @@
 	   :entry-reference :entry-ref-name :entry-ref-author :entry-ref-url :entry-ref-isbn :entry-ref-page
 	   :entry-db :add-entry :db-length :db-primary :db-yolks :db-whites
 	   ;; higher level interfaces
-	   :find-equalibrium
+	   :find-equilibrium
 	   :export-message))
 (in-package :eggqulibrium.model)
 
@@ -20,7 +20,7 @@
     :initarg :whites
     :initform 0
     :reader conf-whites))
-  (:documentation "configuration model"))
+  (:documentation "base configuration model"))
 
 (defclass entry ()
   ((recipe :reader entry-recipe :initarg :recipe :type string)
@@ -83,19 +83,20 @@
     (vector-push-extend entry vec)
     (setf (gethash num ht) vec)))
 
-(defgeneric find-equalibrium (configuration database)
+(defgeneric find-equilibrium (configuration database)
   (:documentation "Implementations of find-implementation take a
   configuration and return sequence of entries (i.e. recpies) that can
   complete the solution."))
 
-(defgeneric equalibriump (conf))
+(defgeneric equilibriump (conf))
 
-(defmethod equalibriump ((conf configuration))
- (= (conf-yolks conf) (conf-whites conf)))
+(defmethod equilibriump ((conf configuration))
+  (= (conf-yolks conf) (conf-whites conf)))
 
-(defun replan-equalib (conf results)
+(defmethod replan-equalib ((conf configuration) results)
   (let ((yolks (conf-yolks conf))
 	(whites (conf-whites conf)))
+
     (loop for item across results
 	  do
 	     (incf whites (entry-whites item))
@@ -110,17 +111,14 @@
 	(vector-push-extend (aref slice (random (length slice))) results)
 	(decf num count)))))
 
-(defmethod find-equalibrium ((conf configuration) (db entry-db))
-  (maphash (lambda (k v) (declare (ignore k)) (shuffle-vector v)) (db-yolks db))
-  (maphash (lambda (k v) (declare (ignore k)) (shuffle-vector v)) (db-whites db))
-
+(defmethod find-equilibrium ((conf configuration) (db entry-db))
   (let* ((output (make-array 0 :adjustable t :fill-pointer 0))
 	 (state (replan-equalib conf output))
 	 (iters -1))
     (loop
       (incf iters)
       (let ((state (replan-equalib state output)))
-	(when (equalibriump state)
+	(when (equilibriump state)
 	  (grip:info> "eggqulibrium eggsists!")
 	  (grip:notice> (list (cons "eggs" (conf-yolks state))
 			      (cons "start-yolk" (conf-yolks conf))
@@ -128,28 +126,30 @@
 			      (cons "yolk" (- (conf-yolks state) (conf-yolks conf)))
 			      (cons "iterations" iters)
 			      (cons "whites" (- (conf-whites state) (conf-whites conf)))))
-	  (return-from find-equalibrium output))
+	  (return-from find-equilibrium output))
 
 	(when (>= (length output) (hash-table-size (db-primary db)))
 	  (grip:warning> "could not find eggqulibrium")
-	  (return-from find-equalibrium output))
+	  (return-from find-equilibrium output))
 
 	(let ((yolks (conf-yolks state))
 	      (whites (conf-whites state))
 	      (previous (length output)))
 
 	  (grip:debug> (grip:new-message
-		       (list (cons "yolks" yolks)
-			    (cons "whites" whites)
-			    (cons "records" (length output)))
-		       :when (> previous 0)))
+			(list (cons "yolks" yolks)
+			      (cons "whites" whites)
+			      (cons "records" (length output)))
+			:when (> previous 0)))
 
 	  (if (> yolks whites)
 	      (entries-for-parts (db-whites db) (- yolks whites) output)
 	      (entries-for-parts (db-yolks db) (- whites yolks) output))
 
 	  (when (= previous (length output))
-	    (grip:warning> "unsolveable eggqulibrium problem, not making progress!")
-	    (return-from find-equalibrium output))
+	    (grip:warning> (list (cons "message" "unsolveable eggqulibrium problem, not making progress!")
+				 (cons "found" (length output))))
+
+	    (return-from find-equilibrium output))
 
 	  (setf state (replan-equalib conf output)))))))
