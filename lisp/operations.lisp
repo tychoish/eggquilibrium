@@ -3,7 +3,8 @@
   (:import-from :eggqulibrium.parser
 		:parse-entries)
   (:import-from :eggqulibrium.model
-		:configuration
+		:configuration-additive
+		:configuration-utilization
 		:find-equilibrium
 		:db-primary)
   (:export :main))
@@ -32,10 +33,10 @@
 
 (defun parse-mode (value)
   (when (search "util" value)
-    (return-from parse-mode :utilization))
+    (return-from parse-mode "utilization"))
 
   (when (search "add" value)
-    (return-from parse-mode :additive))
+    (return-from parse-mode "additive"))
 
   (log-fatal (grip:new-message "~A is not a known mode" :args value)))
 
@@ -68,6 +69,17 @@
    :long "whites"
    :default 0))
 
+
+(defun configuration-factory (mode yolks whites)
+  (when (equal "additive" mode)
+    (return-from configuration-factory
+      (make-instance 'configuration-additive :yolks yolks :whites whites)))
+  (when (equal "utilization" mode)
+    (return-from configuration-factory
+      (make-instance 'configuration-utilization :yolks yolks :whites whites)))
+
+  (log-fatal (grip:new-message "~A is not a known mode" :args mode)))
+
 (defun main (&rest args)
   (declare (ignorable args))
   (setf grip:*default-logger* (make-instance 'grip.logger:stream-journal :name (pathname-name (uiop:argv0))))
@@ -87,9 +99,9 @@
     (grip:debug> (list :filename (getf options :path)))
 
     (let* ((db (parse-entries (getf options :path)))
-	   (conf (make-instance 'configuration :yolks (getf options :yolks)
-					       :whites (getf options :whites)))
+	   (conf (configuration-factory (getf options :mode) (getf options :yolks) (getf options :whites)))
 	   (results (find-equilibrium conf db)))
+
       (loop for item across results
 	    do
 	       (grip:info> item)))))

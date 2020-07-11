@@ -1,7 +1,8 @@
 (defpackage eggqulibrium.model
   (:use :cl)
   (:import-from :grip.message :export-message)
-  (:export :configuration
+  (:export :configuration-addititve
+	   :configuration-utlization
 	   ;; entry database/models
 	   :entry :entry-recipe :entry-yolks :entry-whites :entry-source :entry-tried
 	   :entry-reference :entry-ref-name :entry-ref-author :entry-ref-url :entry-ref-isbn :entry-ref-page
@@ -11,28 +12,17 @@
 	   :export-message))
 (in-package :eggqulibrium.model)
 
-(defclass configuration ()
-  ((number-yolks
-    :initarg :yolks
-    :initform 0
-    :reader conf-yolks)
-   (number-whites
-    :initarg :whites
-    :initform 0
-    :reader conf-whites))
-  (:documentation "base configuration model"))
-
 (defclass entry ()
   ((recipe :reader entry-recipe :initarg :recipe :type string)
    (yolks :reader entry-yolks :initarg :yolks :type integer)
    (whites :reader entry-whites :initarg :whites :type integer)
    (source :reader entry-source :initarg :source :type entry-reference)
    (tried :reader entry-tried :initarg :tried :type boolean))
-  (:documentation "model for a single partial egg consuming recpie"))
+  (:documentation "model for a single partial egg consuming recipe"))
 
 (defmethod export-message ((record entry))
   (let ((ht (make-hash-table :test 'eql)))
-    (setf (gethash "recpie" ht) (entry-recipe record))
+    (setf (gethash "recipe" ht) (entry-recipe record))
     (setf (gethash "source" ht) (entry-ref-name (entry-source record)))
     (setf (gethash "yolks" ht) (entry-yolks record))
     (setf (gethash "whites" ht) (entry-whites record))
@@ -83,17 +73,37 @@
     (vector-push-extend entry vec)
     (setf (gethash num ht) vec)))
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass configuration ()
+  ((number-yolks
+    :initarg :yolks
+    :initform 0
+    :reader conf-yolks)
+   (number-whites
+    :initarg :whites
+    :initform 0
+    :reader conf-whites))
+  (:documentation "base configuration model"))
+
 (defgeneric find-equilibrium (configuration database)
   (:documentation "Implementations of find-implementation take a
-  configuration and return sequence of entries (i.e. recpies) that can
+  configuration and return sequence of entries (i.e. recipes) that can
   complete the solution."))
 
 (defgeneric equilibriump (conf))
 
-(defmethod equilibriump ((conf configuration))
+(defgeneric current-equilibrium-state (conf results))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass configuration-additive (configuration) ()
+  (:documentation ""))
+
+(defmethod equilibriump ((conf configuration-additive))
   (= (conf-yolks conf) (conf-whites conf)))
 
-(defmethod replan-equalib ((conf configuration) results)
+(defmethod current-equilibrium-state ((conf configuration-additive) results)
   (let ((yolks (conf-yolks conf))
 	(whites (conf-whites conf)))
 
@@ -102,24 +112,27 @@
 	     (incf whites (entry-whites item))
 	     (incf yolks (entry-yolks item)))
 
-    (make-instance 'configuration :whites whites :yolks yolks)))
+    (make-instance 'configuration-additive :whites whites :yolks yolks)))
 
 (defun entries-for-parts (records num results)
   (loop for count from num downto 1 do
+    (when (<= num 0)
+      (return-from entries-for-parts))
+
     (multiple-value-bind (slice ok) (gethash count records)
       (when ok
 	(vector-push-extend (aref slice (random (length slice))) results)
 	(decf num count)))))
 
-(defmethod find-equilibrium ((conf configuration) (db entry-db))
+(defmethod find-equilibrium ((conf configuration-additive) (db entry-db))
   (let* ((output (make-array 0 :adjustable t :fill-pointer 0))
-	 (state (replan-equalib conf output))
+	 (state (current-equilibrium-state conf output))
 	 (iters -1))
     (loop
       (incf iters)
-      (let ((state (replan-equalib state output)))
+      (let ((state (current-equilibrium-state state output)))
 	(when (equilibriump state)
-	  (grip:info> "eggqulibrium eggsists!")
+	  (grip:info> "additive eggqulibrium eggsists!")
 	  (grip:notice> (list (cons "eggs" (conf-yolks state))
 			      (cons "start-yolk" (conf-yolks conf))
 			      (cons "start-whites" (conf-whites conf))
@@ -152,4 +165,74 @@
 
 	    (return-from find-equilibrium output))
 
-	  (setf state (replan-equalib conf output)))))))
+	  (setf state (current-equilibrium-state conf output)))))))
+
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(defclass configuration-utilization (configuration) ()
+  (:documentation ""))
+
+(defmethod equilibriump ((conf configuration-utilization))
+  (and (>= 0 (conf-whites conf)) (>= 0 (conf-yolks conf))))
+
+(defmethod current-equilibrium-state ((conf configuration-utilization) records)
+  (let ((yolks 0)
+	(whites 0))
+    (loop for item across records
+	  do
+	     (incf whites (entry-whites item))
+	     (incf yolks (entry-yolks item)))
+
+    (setf whites (- (conf-whites conf) whites))
+    (setf yolks (- (conf-yolks conf) yolks))
+
+    (when (< whites 0)
+      (incf yolks (* -1 whites)))
+
+    (when (< yolks 0)
+      (incf whites (* -1 yolks)))
+
+    (make-instance 'configuration-utilization :whites whites :yolks yolks)))
+
+(defun recipes-for-utilization-fit (records num results)
+  (loop for count from num downto 1 do
+    (when (<= num 0)
+      (return-from recipes-for-utilization-fit))
+    (multiple-value-bind (slice ok) (gethash count records)
+      (when ok
+	(let ((idx 0)
+	      (least 0))
+	  (loop for entry across slice
+		for entry-index from 0 upto (- (length slice) 1)
+		do
+		   (let ((total (+ (entry-whites entry) (entry-yolks entry))))
+		     (when (or (= 0 least) (< total least))
+			 (setf idx entry-index)
+			 (setf least total))))
+	  (when (> least 0)
+	    (vector-push-extend (aref slice idx) results)
+	    (decf num count)))))))
+
+(defmethod find-equilibrium ((conf configuration-utilization) (db entry-db))
+  (let* ((output (make-array 0 :adjustable t :fill-pointer 0))
+	 (state (current-equilibrium-state conf output)))
+    (loop
+      (when (equilibriump state)
+	(grip:notice> (list (cons "messsage" "found utilization-based eggqulibrium")
+			    (cons "recipes" (length output))))
+	(return-from find-equilibrium output))
+
+      (let ((num (length output)))
+	(when (< 0 (conf-whites state))
+	  (recipes-for-utilization-fit (db-whites db) (conf-whites state) output)
+	  (setf state (current-equilibrium-state conf output)))
+
+	(when (< 0 (conf-yolks state))
+	  (recipes-for-utilization-fit (db-yolks db) (conf-whites state) output)
+	  (setf state (current-equilibrium-state conf output)))
+
+	;; return if we're not making progress
+	(when (= num (length output))
+	  (grip:warning> (list (cons "message" "unsolveable eggqulibrium problem, not making progress!")
+			       (cons "found" (length output))))
+	  (return-from find-equilibrium output))))))
