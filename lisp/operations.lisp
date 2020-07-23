@@ -1,14 +1,14 @@
-(defpackage eggqulibrium.operations
+(defpackage eggquilibrium.operations
   (:use :cl)
-  (:import-from :eggqulibrium.parser
+  (:import-from :eggquilibrium.parser
 		:parse-entries)
-  (:import-from :eggqulibrium.model
+  (:import-from :eggquilibrium.model
 		:configuration-additive
 		:configuration-utilization
 		:find-equilibrium
 		:db-primary)
   (:export :main))
-(in-package :eggqulibrium.operations)
+(in-package :eggquilibrium.operations)
 
 (defun log-fatal (msg)
   (grip:emergency> msg)
@@ -49,7 +49,7 @@
    :description "path to input csv file"
    :long "path"
    :short #\p
-   :default (merge-pathnames (uiop:getcwd) "eggqulibrium.csv"))
+   :default (merge-pathnames (uiop:getcwd) "eggquilibrium.csv"))
   (:name :mode
    :description "search for equilibrium in 'additive' mode (add
    recpies to get a new equilibrium) or utilization (find recpies to
@@ -91,7 +91,7 @@
 	(opts:get-opts))
     (when-option (options :help)
       (opts:describe
-       :prefix "eggqulibirium is a partial egg utilization recpie finder."
+       :prefix "eggquilibirium is a partial egg utilization recpie finder."
        :usage-of (uiop:argv0)
        :args     free-args)
       (return-from main))

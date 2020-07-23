@@ -1,13 +1,13 @@
-(defpackage eggqulibrium.parser
+(defpackage eggquilibrium.parser
   (:use :cl)
-  (:import-from :eggqulibrium.model
+  (:import-from :eggquilibrium.model
 		:entry
 		:entry-reference
 		:entry-db :add-entry)
   (:import-from :cl-csv
 		:read-csv)
   (:export :parse-entries))
-(in-package :eggqulibrium.parser)
+(in-package :eggquilibrium.parser)
 
 (defun safe-parse-integer (data)
   (let ((res (parse-integer data :junk-allowed t)))

@@ -1,4 +1,4 @@
-project := eggqulibrium
+project := eggquilibrium
 directory := lisp
 
 src := $(shell find $(directory) -name "*.lisp")

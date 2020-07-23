@@ -1,4 +1,4 @@
-(defpackage eggqulibrium.model
+(defpackage eggquilibrium.model
   (:use :cl)
   (:import-from :grip.message :export-message)
   (:export :configuration-addititve
@@ -10,7 +10,7 @@
 	   ;; higher level interfaces
 	   :find-equilibrium
 	   :export-message))
-(in-package :eggqulibrium.model)
+(in-package :eggquilibrium.model)
 
 (defclass entry ()
   ((recipe :reader entry-recipe :initarg :recipe :type string)
@@ -132,7 +132,7 @@
       (incf iters)
       (let ((state (current-equilibrium-state state output)))
 	(when (equilibriump state)
-	  (grip:info> "additive eggqulibrium eggsists!")
+	  (grip:info> "additive eggquilibrium eggsists!")
 	  (grip:notice> (list (cons "eggs" (conf-yolks state))
 			      (cons "start-yolk" (conf-yolks conf))
 			      (cons "start-whites" (conf-whites conf))
@@ -142,7 +142,7 @@
 	  (return-from find-equilibrium output))
 
 	(when (>= (length output) (hash-table-size (db-primary db)))
-	  (grip:warning> "could not find eggqulibrium")
+	  (grip:warning> "could not find eggquilibrium")
 	  (return-from find-equilibrium output))
 
 	(let ((yolks (conf-yolks state))
@@ -160,7 +160,7 @@
 	      (entries-for-parts (db-yolks db) (- whites yolks) output))
 
 	  (when (= previous (length output))
-	    (grip:warning> (list (cons "message" "unsolveable eggqulibrium problem, not making progress!")
+	    (grip:warning> (list (cons "message" "unsolveable eggquilibrium problem, not making progress!")
 				 (cons "found" (length output))))
 
 	    (return-from find-equilibrium output))
@@ -218,7 +218,7 @@
 	 (state (current-equilibrium-state conf output)))
     (loop
       (when (equilibriump state)
-	(grip:notice> (list (cons "messsage" "found utilization-based eggqulibrium")
+	(grip:notice> (list (cons "messsage" "found utilization-based eggquilibrium")
 			    (cons "recipes" (length output))))
 	(return-from find-equilibrium output))
 
@@ -233,6 +233,6 @@
 
 	;; return if we're not making progress
 	(when (= num (length output))
-	  (grip:warning> (list (cons "message" "unsolveable eggqulibrium problem, not making progress!")
+	  (grip:warning> (list (cons "message" "unsolveable eggquilibrium problem, not making progress!")
 			       (cons "found" (length output))))
 	  (return-from find-equilibrium output))))))
