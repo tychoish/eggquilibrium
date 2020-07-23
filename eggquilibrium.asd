@@ -10,6 +10,7 @@
   :components ((:module "lisp"
 		:components
 		((:file "model")
+		 (:file "rest" :depends-on ("model"))
 		 (:file "parser" :depends-on ("model"))
 		 (:file "operations" :depends-on ("model" "parser")))))
   :in-order-to ((test-op (test-op "eggquilibrium/tests"))))
