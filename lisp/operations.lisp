@@ -32,13 +32,13 @@
   (log-fatal "missing required "))
 
 (defun parse-mode (value)
-  (when (search "util" value)
-    (return-from parse-mode "utilization"))
-
-  (when (search "add" value)
-    (return-from parse-mode "additive"))
-
-  (log-fatal (grip:new-message "~A is not a known mode" :args value)))
+  (cond
+    ((search "util" value) "utilization")
+    ((search "add" value) "additive")
+    ((string= "web" value) "service")
+    ((string= "service" value) "service")
+    (otherwise
+     (log-fatal (grip:new-message "~A is not a known mode" :args value)))))
 
 (opts:define-opts
   (:name :help
@@ -69,7 +69,6 @@
    :long "whites"
    :default 0))
 
-
 (defun configuration-factory (mode yolks whites)
   (when (equal "additive" mode)
     (return-from configuration-factory
@@ -98,10 +97,15 @@
 
     (grip:debug> (list :filename (getf options :path)))
 
-    (let* ((db (parse-entries (getf options :path)))
-	   (conf (configuration-factory (getf options :mode) (getf options :yolks) (getf options :whites)))
-	   (results (find-equilibrium conf db)))
-
-      (loop for item across results
-	    do
-	       (grip:info> item)))))
+    (let ((db (parse-entries (getf options :path)))
+	  (mode (getf options :mode)))
+      (cond
+	((string= mode "service")
+	 (grip:info> "starting web service")
+	 (grip:info> "exiting web service"))
+	(otherwise
+	 (let* ((conf (configuration-factory (getf options :mode) (getf options :yolks) (getf options :whites)))
+		(results (find-equilibrium conf db)))
+	   (loop for item across results
+		 do
+		    (grip:info> item))))))))
